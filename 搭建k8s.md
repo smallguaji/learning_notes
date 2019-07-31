@@ -2,7 +2,13 @@
 
 <font size=1 color="purple">by 小呱唧</font>
 
+### kubernetes cluster结构
 
+![](https://raw.githubusercontent.com/smallguaji/picture/master/%E5%A4%A7%E4%BD%93%E6%9E%B6%E6%9E%84.png)
+
+
+
+![](https://raw.githubusercontent.com/smallguaji/picture/master/k8s.png)
 
 ### 虚拟机配置
 
@@ -173,7 +179,7 @@ cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
 
 `sudo apt-get update`
 
-`sudo apt-get install kubelet kubeadm kubelet`     <font size=3 color="green">默认安装最新版本，本例中安装1.15版本，安装的版本信息可通过 kubectl version查看</font>
+`sudo apt-get install kubelet kubeadm kubectl`     <font size=3 color="green">默认安装最新版本，本例中安装1.15版本，安装的版本信息可通过 kubectl version查看</font>
 
 `sudo systemctl enable kubelet`
 
