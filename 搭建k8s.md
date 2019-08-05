@@ -65,7 +65,7 @@ Linux时间同步有两种方案：①ntpd      ②ntp + ntpdate    本例中采
 
 `sudo apt-get install ntp`
 
-`>sudo apt-get install ntpdate`
+`sudo apt-get install ntpdate`
 
 1.设置开机自动启动ntp服务
 
@@ -100,6 +100,8 @@ chkconfig ntp on  —>   `sysv-rc-conf ntp on` （在ubuntu，chkconfig被sysv-r
 ②`hostnamectl set-hostname {NAME}`
 
 两者的区别为修该配置文件需要reboot重启才能生效，而用命令更改则是即时生效。
+
+实测在redhat系统下命令更改可以即时生效，但在ubuntu系统下仍需要reboot重启生效。
 
 
 
@@ -173,7 +175,7 @@ cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
    	EOF
 ```
 
-**<font color="red" size=2>执行以上的命令会将kubernetes源添加到/etc/apt/source.list.d/kubernetes.list文件中</font>**
+**<font color="red" size=2>执行以上的命令会将kubernetes源添加到/etc/apt/sources.list.d/kubernetes.list文件中</font>**
 
 更新apt源
 
