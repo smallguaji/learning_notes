@@ -10,6 +10,44 @@
 
 ![](https://raw.githubusercontent.com/smallguaji/picture/master/k8s.png)
 
+
+
+### 组件功能
+
+docker源  ->   docker-ce的安装image
+
+kubernetes源   ->   kubelet、kubeadm、kubectl的安装image
+
+registry源   ->   api server、etcd、schedule、controller manager的安装image
+
+
+
+**kubelet（所有节点）**：kubelet是运行在每个节点上主要的"节点代理"，每个节点都会启动kubelet进程，用来处理master节点下发到本节点的任务。kubelet通过各种机制（主要为api server）获取一组PodSpec并保证这些PodSpec中描述的容器健康运行。
+
+主要功能有：pod管理（定期从所监听的数据源获取节点上pod/container的期望状态——包括运行什么容器、运行的副本数量、网络或存储如何配置。）、容器健康检查、容器监控
+
+**kubeadm（master节点）**：kubeadm是kubernetes官方提供的用于快速安装kubernetes cluster集群的工具。
+
+**kubectl（所有节点，但不是必需，在本例中需要用kubectl安装flannel）**：kubectl是kubernetes集群的命令行，通过kubectl能够对集群本身进行管理，并能够在集群上进行容器化应用的安装部署。
+
+
+
+**api server（master节点）**：核心功能是提供了kubernetes各类资源对象（Pod、RC、service）的增、删、改、查及HTTP REST接口。
+
+server是通过一个名为kube-apiserver的进程提供服务，该进程在master节点上，默认情况下，在本机8080端口提供REST服务。
+
+**etcd（master节点）**：用于保存集群中所有网络配置和对象的状态信息。整个kubernetes cluster中一共有两个服务需要用到etcd来协同和存储配置，分别是：① 网络插件cni、对于其他网络插件也需要用到etcd存储网络的配置信息。② kubernetes本身，包括各种对象的状态和原信息配置。
+
+**controller manager（master节点）**：集群内部的管理控制中心，负责集群内的Node、Pod副本、服务端点（EndPoint）、命名空间（namespace）、服务账号（ServiceAccount）的管理，当某个Node意外宕机时，controller-manager会及时发现并执行自动化修复流程，确保集群始终处于预期的工作状态。
+
+**scheduler（master节点）**：根据特定的调度算法将pod调度到指定的工作节点（Node）上。
+
+
+
+**flannel（所有节点）**：cni（网络插件）之一，负责容器间的通信、Pod之间的通信、Pod与Service之间的通信、Service与集群外部的通信。
+
+
+
 ### 虚拟机配置
 
 虚拟机软件：VMware Workstations Pro 15
@@ -60,6 +98,8 @@ dns-nameservers 192.168.108.2
 **安装ntp——用于同步各节点的时间**
 
 <font color="blue" size=2>ps -aux：查看当前进程</font>
+
+<font color="blue" size=2>find / -name "{file_name}"   : 查找文件</font>
 
 Linux时间同步有两种方案：①ntpd      ②ntp + ntpdate    本例中采用第二种方案。    ☆ntpd和ntpdate不能同时使用了端口123。
 
@@ -275,7 +315,9 @@ token的值和sha256的会变。
 
 **<font color ="pink">查看某服务的配置文件路径可用</font>** `systemctl status {SERVICENAME}` 
 
-该命令可以显示该服务的状态已经配置文件路径
+该命令可以显示该服务的状态以及配置文件路径
+
+
 
 ### 异常处理
 
@@ -320,6 +362,104 @@ Environment="KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/boot
 每次重新初始化master节点之前都要先清除之前的安装结果
 
 `kubeadm reset`
+
+**2、 使用kubectl命令出现以下错误[The connection to the server localhost:8080 was refused]**
+
+出现该错误的原因是kubectl命令需要使用kubernetes-admin来运行，解决方法为解决方法如下，将主节点中的【/etc/kubernetes/admin.conf】文件拷贝到从节点相同目录下，然后配置环境变量：
+
+`echo "export KUBECONFIG=/etc/kubernetes/admin.conf" >> ~/.bash_profile`
+
+`source ~/.bash_profile`
+
+https://blog.csdn.net/nklinsirui/article/details/80583971
+
+**3、 集群搭建完成后，查看master和node的kubelet状态，发现有以下错误**
+
+`systemctl status kubelet`   该命令可查看当前kubelet的运行状态
+
+`journalctl -xefu kubelet`   如果kubelet运行有错误，则可以用该命令查看详细错误信息。
+
+**master**
+
+```shell
+kubelet.service - kubelet: The Kubernetes Node Agent
+   Loaded: loaded (/lib/systemd/system/kubelet.service; enabled; vendor preset: enabled)
+  Drop-In: /etc/systemd/system/kubelet.service.d
+           └─10-kubeadm.conf
+   Active: active (running) since Mon 2019-07-15 19:15:55 CST; 3 weeks 0 days ago
+     Docs: https://kubernetes.io/docs/home/
+ Main PID: 757 (kubelet)
+    Tasks: 23
+   Memory: 71.8M
+      CPU: 2h 26min 23.725s
+   CGroup: /system.slice/kubelet.service
+           └─757 /usr/bin/kubelet --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf --cgroup-driver=cgroupfs --config=/var/lib/kubelet/config.yaml --cgroup-driver=cgroupfs --network-plugin=cni --pod-infra-container-image=registry.aliyuncs.com/google_containers/pause:3
+~
+Aug 06 13:57:07 guaji-master kubelet[757]: E0806 13:57:07.190393     757 summary_sys_containers.go:47] Failed to get system container stats for "/system.slice/docker.service": failed to get cgroup stats for "/system.slice/docker.service": failed to get container info for "/system.slice/docker.service": unknown container 
+Aug 06 13:57:17 guaji-master kubelet[757]: E0806 13:57:17.290830     757 summary_sys_containers.go:47] Failed to get system container stats for "/system.slice/docker.service": failed to get cgroup stats for "/system.slice/docker.service": failed to get container info for "/system.slice/docker.service": unknown container 
+Aug 06 13:57:27 guaji-master kubelet[757]: E0806 13:57:27.367150     757 summary_sys_containers.go:47] Failed to get system container stats for "/system.slice/docker.service": failed to get cgroup stats for "/system.slice/docker.service": failed to get container info for "/system.slice/docker.service": unknown container 
+
+```
+
+解决这个问题需要在配置文件/etc/systemd/system/kubelet.service.d/10-kubeadm.conf中添加环境参数
+
+```
+# Note: This dropin only works with kubeadm and kubelet v1.11+
+[Service]
+Environment="KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf --cgroup-driver=cgroupfs"
+
+Environment="KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml"
+
+Environment="KUBELET_SYSTEM_PODS_ARGS=--pod-manifest-path=/etc/kubernetes/manifests --allow-privileged=true"
+
+Environment="KUBELET_NETWORK_ARGS=--network-plugin=cni --cni-conf-dir=/etc/cni/net.d --cni-bin-dir=/opt/cni/bin"
+
+Environment="KUBELET_AUTHZ_ARGS=--authorization-mode=Webhook --client-ca-file=/etc/kubernetes/pki/ca.crt"
+
+Environment="KUBELET_CERTIFICATE_ARGS=--rotate-certificates=true --cert-dir=/var/lib/kubelet/pki"
+
+# This is a file that "kubeadm init" and "kubeadm join" generates at runtime, populating the KUBELET_KUBEADM_ARGS variable dynamically
+
+EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env
+
+# This is a file that the user can use for overrides of the kubelet args as a last resort. Preferably, the user should use
+# the .NodeRegistration.KubeletExtraArgs object in the configuration files instead. KUBELET_EXTRA_ARGS should be sourced from this file.
+
+EnvironmentFile=-/etc/default/kubelet
+
+ExecStart=
+ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS
+```
+
+然后生效配置文件，再重启kubelet服务
+
+`systemctl daemon-reload`
+
+`systemctl restart kubelet`
+
+**node**
+
+```shell
+kubelet.service - kubelet: The Kubernetes Node Agent
+   Loaded: loaded (/lib/systemd/system/kubelet.service; enabled; vendor preset: enabled)
+  Drop-In: /etc/systemd/system/kubelet.service.d
+           └─10-kubeadm.conf
+   Active: active (running) since Fri 2019-07-05 21:37:10 CST; 1 months 1 days ago
+     Docs: https://kubernetes.io/docs/home/
+ Main PID: 11934 (kubelet)
+    Tasks: 18
+   Memory: 43.9M
+      CPU: 1h 23min 42.991s
+   CGroup: /system.slice/kubelet.service
+           └─11934 /usr/bin/kubelet --bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf --config=/var/lib/kubelet/config.yaml --cgroup-driver=cgroupfs --network-plugin=cni --pod-infra-container-image=registry.aliyuncs.com/google_containers/pause:3.1
+Aug 06 13:56:58 guaji-node1 kubelet[11934]: E0806 13:56:58.582830   11934 reflector.go:125] object-"kube-system"/"kube-proxy": Failed to list *v1.ConfigMap: Get https://192.168.108.130:6443/api/v1/namespaces/kube-system/configmaps?fieldSelector=metadata.name%3Dkube-proxy&limit=500&resourceVersion=0: dial tcp 192.168.108.130:6443: connect: no route to host
+Aug 06 13:56:58 guaji-node1 kubelet[11934]: E0806 13:56:58.582904   11934 reflector.go:125] object-"kube-system"/"kube-flannel-cfg": Failed to list *v1.ConfigMap: Get https://192.168.108.130:6443/api/v1/namespaces/kube-system/configmaps?fieldSelector=metadata.name%3Dkube-flannel-cfg&limit=500&resourceVersion=0: dial tcp 192.168.108.130:6443: connect: no route to host
+Aug 06 13:56:58 guaji-node1 kubelet[11934]: E0806 13:56:58.582976   11934 reflector.go:125] object-"kube-system"/"flannel-token-65mps": Failed to list *v1.Secret: Get https://192.168.108.130:6443/api/v1/namespaces/kube-system/secrets?fieldSelector=metadata.name%3Dflannel-token-65mps&limit=500&resourceVersion=0: dial tcp 192.168.108.130:6443: connect: no route to host
+```
+
+如果报错的节点为HA的cluster中的某一个master节点，则原因为加入master节点时没有创建用户。具体操作看上文【配置kubectl用户】步骤。
+
+如果在不是HA的集群中的slave节点抛出这样的问题，则属于正常状况，如果强迫症想修复这个问题，可以将master节点中 $HOME/.kube 目录复制到其他node中的相同路径下。
 
 
 
