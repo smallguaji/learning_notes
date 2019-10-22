@@ -107,6 +107,16 @@ Linux时间同步有两种方案：①ntpd      ②ntp + ntpdate    本例中采
 
 `sudo apt-get install ntpdate`
 
+如果同步后时间仍不对，考虑是系统时区错误，修改系统时区
+
+`date -R`可查看当前时区
+
+`sudo tzselect`选择时区
+
+永久配置系统时区
+
+`sudo cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime`
+
 1.设置开机自动启动ntp服务
 
 chkconfig ntp on  —>   `sysv-rc-conf ntp on` （在ubuntu，chkconfig被sysv-rc-conf代替）
@@ -230,7 +240,7 @@ cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
 **初始化kubernetes集群的master节点（node节点不需要此步骤）**
 
 ```shell
-kubeadm init --kubernetes-version=v1.15.0 --apiserver-advertise-address=192.168.108.130 --image-repository registry.aliyuncs.com/google_containers --pod-network-cidr=192.168.0.0/16
+kubeadm init --kubernetes-version=v1.15.0 --apiserver-advertise-address=192.168.108.130 --image-repository registry.aliyuncs.com/google_containers --pod-network-cidr=10.244.0.0/16
 ```
 
 <font color="red">1.apiserver-advertise-address的ip地址应为apiserver所在节点的ip地址，而在kubernetes集群中，apiserver组件安装在master节点，所以该参数的值应为master节点虚拟机的ip地址。</font>
@@ -240,6 +250,16 @@ kubeadm init --kubernetes-version=v1.15.0 --apiserver-advertise-address=192.168.
 <font color="red">3. image-repository指定了初始化kubernetes集群master节点时拉取镜像的镜像仓库，如果不写该参数，则表示从其官方镜像仓库拉取镜像（master所需组件的镜像——api server、etcd、controller-Manager、schedule），而这需要翻墙才能完成，所以在本例中使用阿里云的镜像仓库。</font>
 
 初始化成功后，控制台将返回一个token，这个token用来往集群里添加新的节点。
+
+token的有效期为24个小时，如果在后期需要往cluster中添加新节点，需要重新生成token
+
+`kubeadm token create`
+
+获得CA公钥的哈希值
+
+`openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed  's/^ .* //'`
+
+然后将新节点添加进cluster中。
 
 
 
@@ -460,6 +480,10 @@ Aug 06 13:56:58 guaji-node1 kubelet[11934]: E0806 13:56:58.582976   11934 reflec
 如果报错的节点为HA的cluster中的某一个master节点，则原因为加入master节点时没有创建用户。具体操作看上文【配置kubectl用户】步骤。
 
 如果在不是HA的集群中的slave节点抛出这样的问题，则属于正常状况，如果强迫症想修复这个问题，可以将master节点中 $HOME/.kube 目录复制到其他node中的相同路径下。
+
+
+
+`etcdctl --endpoints=https://127.0.0.1:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt --key=/etc/kubernetes/pki/etcd/healthcheck-client.key endpoint health`
 
 
 
